@@ -8,66 +8,77 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <h1>Garmin Dashboard</h1>
-    <p class="muted">Last synced: {{ last_sync or "never" }}</p>
-  </header>
-
-  <section class="cards">
-    <div class="card">
-      <span class="label">Steps today</span>
-      <span class="value">{{ latest["steps"] if latest and latest["steps"] is not none else "–" }}</span>
-    </div>
-    <div class="card">
-      <span class="label">Resting HR</span>
-      <span class="value">{{ latest["resting_hr"] if latest and latest["resting_hr"] is not none else "–" }}</span>
-    </div>
-    <div class="card">
-      <span class="label">7d avg steps</span>
-      <span class="value">{{ "%.0f"|format(avg_steps_7d) if avg_steps_7d else "–" }}</span>
-    </div>
-    <div class="card">
-      <span class="label">7d avg resting HR</span>
-      <span class="value">{{ "%.0f"|format(avg_rhr_7d) if avg_rhr_7d else "–" }}</span>
-    </div>
-    <div class="card">
-      <span class="label">7d avg sleep</span>
-      <span class="value">{{ "%.1fh"|format(avg_sleep_7d / 3600) if avg_sleep_7d else "–" }}</span>
-    </div>
-  </section>
-
-  <section class="charts">
-    <img src="/chart/steps.png" alt="Daily steps, last 30 days" width="700" height="300">
-    <img src="/chart/resting_hr.png" alt="Resting heart rate, last 30 days" width="700" height="300">
-    <img src="/chart/sleep.png" alt="Sleep duration, last 30 days" width="700" height="300">
-    <img src="/chart/body_battery.png" alt="Body battery, last 30 days" width="700" height="300">
-    <img src="/chart/stress.png" alt="Average stress, last 30 days" width="700" height="300">
-  </section>
-
-  <section class="activities">
-    <h2>Recent activities</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th><th>Name</th><th>Type</th><th>Distance (km)</th><th>Duration</th><th>Calories</th><th>Avg HR</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for a in activities %}
-        <tr>
-          <td>{{ a["day"] }}</td>
-          <td>{{ a["name"] }}</td>
-          <td>{{ a["activity_type"] }}</td>
-          <td>{{ "%.2f"|format(a["distance_meters"] / 1000) if a["distance_meters"] else "–" }}</td>
-          <td>{{ "%d:%02d"|format((a["duration_seconds"] or 0) // 60, (a["duration_seconds"] or 0) % 60) }}</td>
-          <td>{{ a["calories"] if a["calories"] is not none else "–" }}</td>
-          <td>{{ a["avg_hr"] if a["avg_hr"] is not none else "–" }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="7">No activities synced yet.</td></tr>
+  <div class="page">
+    <header>
+      <div class="header-text">
+        <h1>Garmin Dashboard</h1>
+        <p class="muted">Last synced {{ last_sync or "never" }}</p>
+      </div>
+      <nav class="ranges" aria-label="Time range">
+        {% for d in allowed_days %}
+        <a href="/?days={{ d }}" class="{{ 'active' if d == days else '' }}">{{ d }}D</a>
         {% endfor %}
-      </tbody>
-    </table>
-  </section>
+      </nav>
+    </header>
+
+    <section class="cards">
+      <div class="card">
+        <span class="label">Avg steps</span>
+        <span class="value">{{ "%.0f"|format(avg["steps"]) if avg["steps"] else "–" }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Avg resting HR</span>
+        <span class="value">{{ "%.0f"|format(avg["resting_hr"]) if avg["resting_hr"] else "–" }}<span class="unit">bpm</span></span>
+      </div>
+      <div class="card">
+        <span class="label">Avg sleep</span>
+        <span class="value">{{ "%.1f"|format(avg["sleep_seconds"] / 3600) if avg["sleep_seconds"] else "–" }}<span class="unit">hrs</span></span>
+      </div>
+      <div class="card">
+        <span class="label">Avg stress</span>
+        <span class="value">{{ "%.0f"|format(avg["stress_avg"]) if avg["stress_avg"] else "–" }}</span>
+      </div>
+      <div class="card">
+        <span class="label">Avg body battery</span>
+        <span class="value">{{ "%.0f"|format(avg["body_battery_charged"]) if avg["body_battery_charged"] else "–" }}</span>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card"><img src="/chart/steps.svg?days={{ days }}" alt="Daily steps"></div>
+      <div class="chart-card"><img src="/chart/resting_hr.svg?days={{ days }}" alt="Resting heart rate"></div>
+      <div class="chart-card"><img src="/chart/sleep.svg?days={{ days }}" alt="Sleep duration"></div>
+      <div class="chart-card"><img src="/chart/body_battery.svg?days={{ days }}" alt="Body battery"></div>
+      <div class="chart-card"><img src="/chart/stress.svg?days={{ days }}" alt="Average stress"></div>
+    </section>
+
+    <section class="activities">
+      <h2>Activities <span class="muted">({{ days }}d)</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Name</th><th>Type</th><th>Distance</th><th>Duration</th><th>Calories</th><th>Avg HR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in activities %}
+            <tr>
+              <td>{{ a.day_label }}</td>
+              <td>{{ a.name }}</td>
+              <td><span class="pill">{{ a.activity_type }}</span></td>
+              <td>{{ "%.2f km"|format(a.distance_meters / 1000) if a.distance_meters else "–" }}</td>
+              <td>{{ "%d:%02d"|format((a.duration_seconds or 0) // 60, (a.duration_seconds or 0) % 60) }}</td>
+              <td>{{ a.calories if a.calories is not none else "–" }}</td>
+              <td>{{ a.avg_hr if a.avg_hr is not none else "–" }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="empty">No activities in this range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </body>
 </html>
